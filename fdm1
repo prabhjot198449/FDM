@@ -1,0 +1,73 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Define grid parameters
+L = 10  # Spatial domain size
+T = 5   # Total time for simulation
+Nx = 20  # Number of grid points in each spatial direction
+Nt = 50  # Number of time steps
+dx = L / (Nx - 1)  # Grid spacing in space
+dt = T / (Nt - 1)  # Time step
+
+# Courant stability condition (ensures stability for the wave equation)
+c = 1  # Speed of propagation (wave speed)
+courant_number = c * dt / dx
+if courant_number > 1:
+    raise ValueError(f"Courant condition violated! courant_number = {courant_number}")
+
+# Create grid for space and time
+x1 = np.linspace(0, L, Nx)
+x2 = np.linspace(0, L, Nx)
+x3 = np.linspace(0, L, Nx)
+x4 = np.linspace(0, L, Nx)
+t = np.linspace(0, T, Nt)
+
+# Initialize gauge field A (as a scalar field for simplicity)
+A = np.zeros((Nt, Nx, Nx, Nx, Nx))  # Time, x1, x2, x3, x4
+
+# Initial condition: Gaussian distribution centered in the spatial domain
+def initial_condition(x1, x2, x3, x4):
+    x1_0, x2_0, x3_0, x4_0 = L / 2, L / 2, L / 2, L / 2
+    sigma = 1.0
+    return np.exp(-((x1 - x1_0) ** 2 + (x2 - x2_0) ** 2 + (x3 - x3_0) ** 2 + (x4 - x4_0) ** 2) / (2 * sigma ** 2))
+
+# Apply initial condition at t = 0
+for i in range(Nx):
+    for j in range(Nx):
+        for k in range(Nx):
+            for l in range(Nx):
+                A[0, i, j, k, l] = initial_condition(x1[i], x2[j], x3[k], x4[l])
+
+# Time-stepping using central difference in time and space (FDM)
+for n in range(1, Nt - 1):
+    for i in range(1, Nx - 1):
+        for j in range(1, Nx - 1):
+            for k in range(1, Nx - 1):
+                for l in range(1, Nx - 1):
+                    # Discretized second derivatives in space using central difference
+                    d2x1 = (A[n, i+1, j, k, l] - 2*A[n, i, j, k, l] + A[n, i-1, j, k, l]) / dx ** 2
+                    d2x2 = (A[n, i, j+1, k, l] - 2*A[n, i, j, k, l] + A[n, i, j-1, k, l]) / dx ** 2
+                    d2x3 = (A[n, i, j, k+1, l] - 2*A[n, i, j, k, l] + A[n, i, j, k-1, l]) / dx ** 2
+                    d2x4 = (A[n, i, j, k, l+1] - 2*A[n, i, j, k, l] + A[n, i, j, k, l-1]) / dx ** 2
+
+                    # Update equation for the next time step using central difference in time
+                    A[n + 1, i, j, k, l] = 2 * A[n, i, j, k, l] - A[n - 1, i, j, k, l] + c ** 2 * dt ** 2 * (d2x1 + d2x2 + d2x3 + d2x4)
+
+# Visualize the initial and final field for a 2D slice at x3 = x4 = L / 2
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 2, 1)
+plt.imshow(A[0, :, :, Nx // 2, Nx // 2], extent=[0, L, 0, L], origin='lower', cmap='viridis')
+plt.colorbar()
+plt.title("Initial Field (t=0)")
+plt.xlabel('x1')
+plt.ylabel('x2')
+
+plt.subplot(1, 2, 2)
+plt.imshow(A[-1, :, :, Nx // 2, Nx // 2], extent=[0, L, 0, L], origin='lower', cmap='viridis')
+plt.colorbar()
+plt.title("Final Field (t=T)")
+plt.xlabel('x1')
+plt.ylabel('x2')
+
+plt.tight_layout()
+plt.show()
